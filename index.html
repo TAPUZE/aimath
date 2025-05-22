@@ -6,40 +6,30 @@
     <title>מורה מתמטיקה AI לבגרות</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+        window.MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']], // For inline math
+            displayMath: [['$$', '$$'], ['\\[', '\\]']] // For display math (centered on new line)
+          },
+          svg: {
+            fontCache: 'global' // Uses a global font cache for faster rendering
+          }
+        };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
         }
-        .math-problem-display p {
-            margin-bottom: 0.5rem;
-        }
-        /* Basic styling for LaTeX-like display */
+        /* Removed .math-problem-display span, sub, sup, and .latex-formula styles as MathJax handles rendering */
         .math-problem-display {
             font-size: 1.25rem; /* text-xl */
             font-weight: 600; /* font-semibold */
             text-align: center;
         }
-        .math-problem-display span {
-            font-family: 'Times New Roman', serif; /* Or a specific math font */
-            font-style: italic;
-        }
-        .math-problem-display sub {
-            vertical-align: sub;
-            font-size: smaller;
-        }
-        .math-problem-display sup {
-            vertical-align: super;
-            font-size: smaller;
-        }
-        .math-problem-display .latex-formula {
-            display: inline-block;
-            font-family: 'KaTeX_Main', 'Times New Roman', serif; /* Placeholder for KaTeX font if it were loaded */
-            font-size: 1.25em; /* Adjust as needed */
-            line-height: 1;
-            white-space: nowrap;
-        }
-        .latex-formula::before { content: '$'; }
-        .latex-formula::after { content: '$'; }
         .rtl-text {
             direction: rtl;
             text-align: right;
@@ -397,7 +387,7 @@
                         השאלה הנוכחית (${currentProblem.difficulty} ${currentProblem.mikud ? '(מיקוד)' : ''})
                     </h2>
                     <div class="math-problem-display text-xl font-semibold text-center leading-relaxed">
-                        ${currentProblem.question.replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>')}
+                        ${currentProblem.question}
                     </div>
                 `;
                 if (currentProblem.imageUrl) {
@@ -411,6 +401,10 @@
                     `;
                 }
                 problemDisplaySection.innerHTML = problemHtml;
+                // Instruct MathJax to typeset the new content
+                if (window.MathJax) {
+                    MathJax.typesetPromise([problemDisplaySection]).catch((err) => console.error("MathJax typesetting failed:", err));
+                }
             } else {
                 currentProblem = null;
                 problemDisplaySection.innerHTML = `
@@ -418,7 +412,6 @@
                         אנא בחר שאלה מהאינדקס למעלה.
                     </div>
                 `;
-                showErrorMessage('Problem not found for the selected criteria.');
             }
             showLoading(false);
         }
@@ -442,7 +435,6 @@
             isInStepByStepMode = false;
             currentStepIndex = 0;
             stepByStepHistory = [];
-            currentSubProblemQuestion = '';
             currentSubProblemAnswerInput.value = '';
             stepByStepSection.classList.add('hidden');
             document.getElementById('initialAnswerSection').classList.remove('hidden');
@@ -567,10 +559,14 @@
                     result.candidates[0].content && result.candidates[0].content.parts &&
                     result.candidates[0].content.parts.length > 0) {
                     const aiResponseText = result.candidates[0].content.parts[0].text;
-                    currentSubProblemQuestionDiv.innerHTML = aiResponseText.replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>');
+                    currentSubProblemQuestionDiv.innerHTML = aiResponseText; // MathJax will render this
                     currentSubProblemQuestion = aiResponseText; // Store for next prompt
                     aiFeedbackDisplay.classList.remove('hidden'); // Show feedback display
-                    aiFeedbackContent.innerHTML = aiResponseText.replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>');
+                    aiFeedbackContent.innerHTML = aiResponseText; // MathJax will render this
+                    // Instruct MathJax to typeset the new content
+                    if (window.MathJax) {
+                        MathJax.typesetPromise([currentSubProblemQuestionDiv, aiFeedbackContent]).catch((err) => console.error("MathJax typesetting failed:", err));
+                    }
                 } else {
                     showErrorMessage('אני מתקשה להתחיל הדרכה שלב אחר שלב. אנא נסה שוב מאוחר יותר.');
                     console.error('Unexpected AI step-by-step response structure:', result);
@@ -659,7 +655,7 @@
                     const isSubStepCorrect = aiResponseText.includes('כל הכבוד') || aiResponseText.includes('נכון') || aiResponseText.includes('מצוין');
                     const isFinalStep = aiResponseText.includes('הפתרון המלא') || aiResponseText.includes('סיימנו') || aiResponseText.includes('סיימנו את הבעיה');
 
-                    aiFeedbackContent.innerHTML = aiResponseText.replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>');
+                    aiFeedbackContent.innerHTML = aiResponseText; // MathJax will render this
                     aiFeedbackDisplay.classList.remove('hidden');
                     currentSubProblemAnswerInput.value = ''; // Clear input for next step
 
@@ -667,6 +663,10 @@
                         currentStepIndex++; // Move to next step
                         currentStepNumberSpan.textContent = currentStepIndex + 1;
                         currentSubProblemQuestion = aiResponseText; // AI's response is the new question
+                        // Instruct MathJax to typeset the new content
+                        if (window.MathJax) {
+                            MathJax.typesetPromise([aiFeedbackContent]).catch((err) => console.error("MathJax typesetting failed:", err));
+                        }
                     } else if (isFinalStep) {
                         isInStepByStepMode = false; // Exit step-by-step mode
                         stepByStepSection.classList.add('hidden');
@@ -681,9 +681,17 @@
                         `;
                         document.getElementById('loadNewProblemBtn').addEventListener('click', loadProblemFromIndex);
                         checkAnswerResultDisplay.classList.remove('hidden');
+                        // Instruct MathJax to typeset the new content
+                        if (window.MathJax) {
+                            MathJax.typesetPromise([aiFeedbackContent, checkAnswerResultDisplay]).catch((err) => console.error("MathJax typesetting failed:", err));
+                        }
                     } else {
                         // Sub-step incorrect, stay on same step, AI's feedback will guide re-attempt
                         currentSubProblemQuestion = aiResponseText; // AI's feedback is the new guiding question
+                        // Instruct MathJax to typeset the new content
+                        if (window.MathJax) {
+                            MathJax.typesetPromise([aiFeedbackContent]).catch((err) => console.error("MathJax typesetting failed:", err));
+                        }
                     }
 
                 } else {
@@ -753,8 +761,12 @@
                     result.candidates[0].content && result.candidates[0].content.parts &&
                     result.candidates[0].content.parts.length > 0) {
                     const text = result.candidates[0].content.parts[0].text;
-                    aiFeedbackContent.innerHTML = text.replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>');
+                    aiFeedbackContent.innerHTML = text; // MathJax will render this
                     aiFeedbackDisplay.classList.remove('hidden');
+                    // Instruct MathJax to typeset the new content
+                    if (window.MathJax) {
+                        MathJax.typesetPromise([aiFeedbackContent]).catch((err) => console.error("MathJax typesetting failed:", err));
+                    }
                 } else {
                     showErrorMessage('Failed to get feedback from AI. Please try again.');
                     console.error('Unexpected AI response structure:', result);
@@ -897,10 +909,14 @@
                 msgDiv.className = `p-3 rounded-lg my-1 max-w-[80%] ${
                     msg.sender === 'user' ? 'chat-message-user' : 'chat-message-ai'
                 }`;
-                msgDiv.innerHTML = msg.text.replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>');
+                msgDiv.innerHTML = msg.text; // MathJax will render this
                 chatMessagesDisplay.appendChild(msgDiv);
             });
             chatMessagesDisplay.scrollTop = chatMessagesDisplay.scrollHeight; // Auto-scroll to bottom
+            // Instruct MathJax to typeset the new content
+            if (window.MathJax) {
+                MathJax.typesetPromise([chatMessagesDisplay]).catch((err) => console.error("MathJax typesetting failed:", err));
+            }
         }
 
         // Function to send a message in the chat
