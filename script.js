@@ -195,11 +195,11 @@ async function loadProblemFromIndex() {
         `;
         // Check if imageUrl exists and is a valid SVG ID
         if (currentProblem.imageUrl) {
-            // Use an SVG <use> tag to reference the symbol from sketches.svg
+            // Use an SVG <use> tag to reference the symbol from the inlined SVG
             problemHtml += `
                 <div class="mt-4 text-center">
                     <svg width="400" height="250" class="mx-auto rounded-lg shadow-md max-w-full h-auto">
-                        <use href="sketches.svg#${currentProblem.imageUrl}"></use>
+                        <use href="#${currentProblem.imageUrl}"></use>
                     </svg>
                     <p class="text-sm text-gray-600 mt-2">
                         (אנא עיין בתרשים המקורי בשאלון הבגרות למען הדיוק המלא)
