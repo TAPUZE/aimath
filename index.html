@@ -6,415 +6,592 @@
     <title>מורה מתמטיקה AI לבגרות</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script>
-        window.MathJax = {
-          tex: {
-            inlineMath: [['$', '$'], ['\\(', '\\)']], // For inline math
-            displayMath: [['$$', '$$'], ['\\[', '\\]']] // For display math (centered on new line)
-          },
-          svg: {
-            fontCache: 'global' // Uses a global font cache for faster rendering
-          }
-        };
-    </script>
-    <script type="text/javascript" id="MathJax-script" async
-        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow-x: hidden; } 
+        .math-problem-display p { margin-bottom: 0.5rem; }
+        .math-problem-display { font-size: 1.25rem; font-weight: 600; text-align: center; }
+        .math-problem-display .latex-formula { display: inline-block; font-family: 'Times New Roman', serif; font-style: italic; font-size: 1.25em; line-height: 1; white-space: nowrap; margin: 0 0.2em; }
+        .rtl-text { direction: rtl; text-align: right; }
+        
+        .chat-message-user { background-color: #DBEAFE; align-self: flex-end; text-align: right; border-radius: 0.75rem 0.75rem 0.25rem 0.75rem; padding: 0.75rem 1rem; margin-bottom: 0.5rem; max-width: 80%; }
+        .chat-message-ai { background-color: #eef2ff; align-self: flex-start; text-align: right; border-radius: 0.75rem 0.75rem 0.75rem 0.25rem; padding: 1rem 1.25rem; margin-bottom: 0.5rem; border: 1px solid #c7d2fe; box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-size: 1.05em; line-height: 1.6; max-width: 80%; }
+
+        #mathBotToggleContainer { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; display: flex; flex-direction: column-reverse; align-items: center; }
+        #mathBotToggle { width: 4rem; height: 4rem; background-color: #4f46e5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s ease-in-out; }
+        #mathBotToggle:hover { transform: scale(1.1); background-color: #4338ca; }
+        #mathBotToggle svg { width: 2rem; height: 2rem; }
+        #proactiveTipBubble { background-color: #6366f1; color: white; padding: 0.5rem 1rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06); margin-bottom: 0.5rem; max-width: 250px; font-size: 0.875rem; text-align: center; opacity: 0; transform: translateY(10px) scale(0.95); visibility: hidden; transition: opacity 0.3s ease-out,transform 0.3s ease-out,visibility 0.3s linear; pointer-events: none; }
+        #proactiveTipBubble.visible { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+        #mathBotContainer { position: fixed; bottom: calc(2rem + 4rem + 1rem); right: 2rem; width: 360px; height: 550px; max-height: calc(100vh - 8rem); background-color: white; border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04); z-index: 999; display: flex; flex-direction: column; overflow: hidden; transform: translateY(100%) scale(0.8); opacity: 0; visibility: hidden; transition: transform 0.3s cubic-bezier(0.68,-0.55,0.27,1.55),opacity 0.3s ease-out,visibility 0.3s linear; }
+        #mathBotContainer.expanded { transform: translateY(0) scale(1); opacity: 1; visibility: visible; }
+        #chatHeader { background-color: #4f46e5; color: white; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; border-top-left-radius: 1rem; border-top-right-radius: 1rem; }
+        #chatHeader h3 { font-weight: 600; }
+        #closeChatButton { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0.25rem; line-height: 1; }
+        #closeChatButton:hover { color: #c7d2fe; }
+        #chatMessagesDisplay { flex-grow: 1; overflow-y: auto; padding: 1rem; background-color: #f9fafb; }
+        #chatInputContainer { border-top: 1px solid #e5e7eb; padding: 0.75rem; background-color: white; display: flex; }
+        #chatInputContainer textarea { border-top-left-radius: 0.5rem; border-bottom-left-radius: 0.5rem; }
+        #chatInputContainer button { border-top-right-radius: 0.5rem; border-bottom-right-radius: 0.5rem; }
+        #pasteZone { border: 2px dashed #cbd5e1; padding: 1rem; text-align: center; color: #64748b; border-radius: 0.5rem; margin-top: 0.5rem; cursor: default; }
+        #pasteZone:hover { border-color: #94a3b8; background-color: #f8fafc; }
+        
+        .top-button { position: absolute; top: 1.5rem; z-index: 50; background-color: #e0e7ff; color: #3730a3; border-radius: 50%; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background-color 0.2s; }
+        .top-button:hover { background-color: #c7d2fe; }
+        #settingsButton { left: 1.5rem; }
+        #historyButton { left: 4.5rem; } 
+
+        .collapsible-menu { transition: max-height 0.4s ease-out, opacity 0.3s ease-out, margin-bottom 0.4s ease-out; overflow: hidden; max-height: 0; opacity: 0; margin-bottom: 0; }
+        .collapsible-menu.expanded { max-height: 1000px; opacity: 1; margin-bottom: 1.5rem; }
+        #historyPanelContent { max-height: 300px; overflow-y: auto; }
+        #aiRecommendationsContent { max-height: 200px; overflow-y: auto; background-color: #f3e8ff; padding: 1rem; border-radius: 0.5rem; margin-top: 1rem; }
+
+        #whiteboardModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+        #whiteboardModal.visible { opacity: 1; visibility: visible; }
+        #whiteboardContainer { background-color: white; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; width: 90%; max-width: 800px; height: 80%; max-height: 600px; }
+        #drawingBoard { border: 1px solid #ccc; cursor: crosshair; touch-action: none; width: 100%; height: 100%; flex-grow: 1; }
+        #whiteboardControls { margin-top: 0.5rem; display: flex; justify-content: space-around; gap: 0.5rem; padding: 0.5rem 0; }
+        #whiteboardControls button { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; }
+        #openWhiteboardButton { display: inline-flex; align-items: center; gap: 0.5rem; }
+    </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-8 flex flex-col items-center font-sans text-gray-800">
 
-    <svg width="0" height="0" style="position:absolute; overflow:hidden;">
+    <div class="w-full max-w-3xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 rtl-text mb-24 relative"> 
+        <button id="settingsButton" class="top-button" aria-label="הגדרות">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.646.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 1.905c-.007.379.137.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.333.183-.582.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.759 6.759 0 010-1.905c.007-.379-.137-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        </button>
+        <button id="historyButton" class="top-button" aria-label="היסטוריה ודוחות">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+        </button>
 
-      <symbol id="graph-hanion-II" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <text x="50" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">0</text>
-        <text x="80" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">1</text>
-        <text x="110" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">2</text>
-        <text x="140" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">3</text>
-        <text x="170" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">4</text>
-        <text x="200" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">5</text>
-        <text x="230" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">6</text>
-        <text x="260" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">7</text>
-        <text x="290" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">8</text>
-        <text x="320" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">9</text>
-        <text x="350" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">10</text>
-        <text x="380" y="235" font-family="sans-serif" font-size="10" text-anchor="middle">11</text>
-        <text x="380" y="210" font-family="sans-serif" font-size="12" text-anchor="end">זמן החניה (שעות)</text>
+        <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-6">מורה מתמטיקה AI לבגרות</h1>
 
-        <text x="40" y="205" font-family="sans-serif" font-size="10" text-anchor="end">15</text>
-        <text x="40" y="175" font-family="sans-serif" font-size="10" text-anchor="end">30</text>
-        <text x="40" y="145" font-family="sans-serif" font-size="10" text-anchor="end">45</text>
-        <text x="40" y="115" font-family="sans-serif" font-size="10" text-anchor="end">60</text>
-        <text x="40" y="85" font-family="sans-serif" font-size="10" text-anchor="end">75</text>
-        <text x="20" y="30" font-family="sans-serif" font-size="12" text-anchor="end">התשלום (שקלים)</text>
-
-        <line x1="50" y1="205" x2="140" y2="205" stroke="blue" stroke-width="2"/>
-        <circle cx="50" cy="205" r="3" fill="black"/>
-        <circle cx="140" cy="205" r="3" fill="black"/>
-        <circle cx="140" cy="175" r="3" fill="white" stroke="blue" stroke-width="1.5"/>
-
-        <line x1="140" y1="175" x2="260" y2="175" stroke="blue" stroke-width="2"/>
-        <circle cx="140" cy="175" r="3" fill="black"/>
-        <circle cx="260" cy="175" r="3" fill="black"/>
-        <circle cx="260" cy="85" r="3" fill="white" stroke="blue" stroke-width="1.5"/>
-
-        <line x1="260" y1="85" x2="380" y2="85" stroke="blue" stroke-width="2"/>
-        <circle cx="260" cy="85" r="3" fill="black"/>
-        <circle cx="380" cy="85" r="3" fill="black"/>
-      </symbol>
-
-      <symbol id="מקבילית-ABCD" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <polygon points="70,220 120,80 320,80 270,220" fill="none" stroke="black" stroke-width="2"/>
-        <line x1="70" y1="220" x2="320" y2="80" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/> <text x="60" y="230" font-family="sans-serif" font-size="14">A</text>
-        <text x="110" y="70" font-family="sans-serif" font-size="14">B</text>
-        <text x="330" y="70" font-family="sans-serif" font-size="14">C</text>
-        <text x="260" y="230" font-family="sans-serif" font-size="14">D</text>
-
-        <text x="40" y="30" font-family="sans-serif" font-size="12">y</text>
-        <text x="390" y="210" font-family="sans-serif" font-size="12">x</text>
-      </symbol>
-
-      <symbol id="משולש-שווה-שוקיים" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <polygon points="200,50 100,200 300,200" fill="none" stroke="black" stroke-width="2"/>
-        <line x1="100" y1="200" x2="250" y2="125" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/>
-        <rect x="245" y="125" width="8" height="8" stroke="black" fill="none" stroke-width="1"/> <text x="195" y="40" font-family="sans-serif" font-size="14">A</text>
-        <text x="90" y="215" font-family="sans-serif" font-size="14">B</text>
-        <text x="310" y="215" font-family="sans-serif" font-size="14">C</text>
-        <text x="255" y="115" font-family="sans-serif" font-size="14">D</text>
-
-        <path d="M290 200 A10 10 0 0 0 290 190 L300 200 Z" fill="none" stroke="black" stroke-width="1"/>
-        <text x="285" y="195" font-family="sans-serif" font-size="10">65°</text>
-      </symbol>
-
-      <symbol id="פרבולה" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <path d="M 80 220 C 100 100, 200 50, 300 100 C 320 150, 350 220, 370 220" fill="none" stroke="blue" stroke-width="2"/>
-
-        <circle cx="100" cy="220" r="3" fill="black"/>
-        <text x="95" y="235" font-family="sans-serif" font-size="14">A</text>
-        <circle cx="300" cy="220" r="3" fill="black"/>
-        <text x="295" y="235" font-family="sans-serif" font-size="14">B</text>
-        <circle cx="200" cy="50" r="3" fill="black"/>
-        <text x="195" y="40" font-family="sans-serif" font-size="14">C</text>
-
-        <text x="40" y="30" font-family="sans-serif" font-size="12">y</text>
-        <text x="390" y="210" font-family="sans-serif" font-size="12">x</text>
-      </symbol>
-
-      <symbol id="גרף-מכוניות" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <path d="M 50 180 C 150 160, 250 140, 350 120" fill="none" stroke="blue" stroke-width="2"/>
-        <text x="100" y="150" font-family="sans-serif" font-size="14">I</text>
-
-        <path d="M 50 80 C 150 100, 250 120, 350 140" fill="none" stroke="red" stroke-width="2"/>
-        <text x="100" y="100" font-family="sans-serif" font-size="14">II</text>
-
-        <line x1="250" y1="220" x2="250" y2="130" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <text x="250" y="235" font-family="sans-serif" font-size="12" text-anchor="middle">2016</text>
-        <text x="50" y="235" font-family="sans-serif" font-size="12" text-anchor="middle">2010</text>
-
-        <text x="40" y="30" font-family="sans-serif" font-size="12">מחיר (שקלים)</text>
-        <text x="390" y="210" font-family="sans-serif" font-size="12">שנה</text>
-      </symbol>
-
-      <symbol id="טרפז-ABCD" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <polygon points="80,200 320,200 280,80 120,80" fill="none" stroke="black" stroke-width="2"/>
-        <line x1="120" y1="80" x2="120" y2="200" stroke="blue" stroke-width="1.5"/>
-        <rect x="115" y="195" width="8" height="8" stroke="black" fill="none" stroke-width="1"/> <rect x="115" y="80" width="8" height="8" stroke="black" fill="none" stroke-width="1"/> <line x1="120" y1="80" x2="320" y2="200" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/>
-
-        <text x="70" y="215" font-family="sans-serif" font-size="14">A</text>
-        <text x="330" y="215" font-family="sans-serif" font-size="14">B</text>
-        <text x="285" y="70" font-family="sans-serif" font-size="14">C</text>
-        <text x="110" y="70" font-family="sans-serif" font-size="14">D</text>
-        <text x="115" y="215" font-family="sans-serif" font-size="14">E</text>
-      </symbol>
-
-      <symbol id="לוח-קליעה" viewBox="0 0 200 200">
-        <rect x="0" y="0" width="200" height="200" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <circle cx="100" cy="100" r="90" fill="none" stroke="black" stroke-width="2"/>
-        <circle cx="100" cy="100" r="50" fill="none" stroke="black" stroke-width="2"/>
-        <circle cx="100" cy="100" r="25" fill="none" stroke="black" stroke-width="2"/>
-
-        <line x1="100" y1="10" x2="100" y2="190" stroke="black" stroke-width="1"/>
-        <line x1="100" y1="100" x2="185" y2="150" stroke="black" stroke-width="1"/>
-        <line x1="100" y1="100" x2="15" y2="150" stroke="black" stroke-width="1"/>
-
-        <text x="100" y="105" font-family="sans-serif" font-size="18" text-anchor="middle" fill="#000">100</text>
-        <text x="150" y="60" font-family="sans-serif" font-size="14" text-anchor="middle" fill="#000">80</text>
-        <text x="50" y="60" font-family="sans-serif" font-size="14" text-anchor="middle" fill="#000">40</text>
-        <text x="100" y="170" font-family="sans-serif" font-size="14" text-anchor="middle" fill="#000">60</text>
-      </symbol>
-
-      <symbol id="התפלגות-נורמלית" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="20" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <path d="M 20 220 C 50 180, 100 100, 200 30 C 300 100, 350 180, 380 220" fill="none" stroke="blue" stroke-width="2"/>
-
-        <line x1="200" y1="30" x2="200" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="150" y1="80" x2="150" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="250" y1="80" x2="250" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="100" y1="150" x2="100" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="300" y1="150" x2="300" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="70" y1="190" x2="70" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="330" y1="190" x2="330" y2="220" stroke="gray" stroke-dasharray="3,3" stroke-width="1"/>
-
-        <text x="200" y="70" font-family="sans-serif" font-size="10" text-anchor="middle">19%</text>
-        <text x="200" y="90" font-family="sans-serif" font-size="10" text-anchor="middle">19%</text>
-        <text x="175" y="120" font-family="sans-serif" font-size="10" text-anchor="middle">15%</text>
-        <text x="225" y="120" font-family="sans-serif" font-size="10" text-anchor="middle">15%</text>
-        <text x="125" y="170" font-family="sans-serif" font-size="10" text-anchor="middle">9%</text>
-        <text x="275" y="170" font-family="sans-serif" font-size="10" text-anchor="middle">9%</text>
-        <text x="85" y="200" font-family="sans-serif" font-size="10" text-anchor="middle">5%</text>
-        <text x="315" y="200" font-family="sans-serif" font-size="10" text-anchor="middle">5%</text>
-        <text x="55" y="210" font-family="sans-serif" font-size="10" text-anchor="middle">1.5%</text>
-        <text x="345" y="210" font-family="sans-serif" font-size="10" text-anchor="middle">1.5%</text>
-        <text x="35" y="215" font-family="sans-serif" font-size="10" text-anchor="middle">0.5%</text>
-        <text x="365" y="215" font-family="sans-serif" font-size="10" text-anchor="middle">0.5%</text>
-
-        <text x="390" y="210" font-family="sans-serif" font-size="12">x</text>
-      </symbol>
-
-      <symbol id="משולש-ABC" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <polygon points="50,100 300,50 250,150" fill="none" stroke="black" stroke-width="2"/>
-        <line x1="50" y1="100" x2="300" y2="50" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/> <rect x="240" y="140" width="10" height="10" stroke="black" fill="none" stroke-width="1"/>
-
-        <circle cx="150" cy="220" r="3" fill="black"/>
-        <text x="145" y="235" font-family="sans-serif" font-size="14">D</text>
-
-        <circle cx="50" cy="200" r="3" fill="black"/>
-        <text x="35" y="205" font-family="sans-serif" font-size="14">K</text>
-        <line x1="50" y1="200" x2="250" y2="150" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/> <text x="40" y="30" font-family="sans-serif" font-size="12">y</text>
-        <text x="390" y="210" font-family="sans-serif" font-size="12">x</text>
-        <text x="40" y="95" font-family="sans-serif" font-size="14">B</text>
-        <text x="305" y="45" font-family="sans-serif" font-size="14">A</text>
-        <text x="255" y="145" font-family="sans-serif" font-size="14">C</text>
-      </symbol>
-
-      <symbol id="מעגל-M" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <circle cx="200" cy="120" r="100" fill="none" stroke="black" stroke-width="2"/>
-
-        <circle cx="200" cy="120" r="3" fill="black"/>
-        <text x="205" y="115" font-family="sans-serif" font-size="14">M</text>
-
-        <line x1="100" y1="140" x2="300" y2="100" stroke="blue" stroke-width="1.5"/>
-        <circle cx="100" cy="140" r="3" fill="black"/>
-        <text x="95" y="155" font-family="sans-serif" font-size="14">B</text>
-        <circle cx="300" cy="100" r="3" fill="black"/>
-        <text x="305" y="95" font-family="sans-serif" font-size="14">C</text>
-
-        <line x1="50" y1="180" x2="100" y2="140" stroke="green" stroke-width="1.5"/>
-        <circle cx="50" cy="180" r="3" fill="black"/>
-        <text x="40" y="185" font-family="sans-serif" font-size="14">A</text>
-
-        <line x1="50" y1="100" x2="300" y2="100" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/>
-
-        <text x="40" y="30" font-family="sans-serif" font-size="12">y</text>
-        <text x="390" y="210" font-family="sans-serif" font-size="12">x</text>
-      </symbol>
-
-      <symbol id="גרף-פונקציה" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="125" x2="380" y2="125" stroke="#000" stroke-width="1.5"/> <line x1="200" y1="20" x2="200" y2="220" stroke="#000" stroke-width="1.5"/> <path d="M 210 220 L 220 180 C 250 100, 300 80, 350 100 L 380 150" fill="none" stroke="blue" stroke-width="2"/>
-        <path d="M 190 20 L 180 60 C 150 140, 100 160, 50 140 L 20 120" fill="none" stroke="blue" stroke-width="2"/>
-
-        <text x="40" y="30" font-family="sans-serif" font-size="12">y</text>
-        <text x="390" y="115" font-family="sans-serif" font-size="12">x</text>
-      </symbol>
-
-      <symbol id="גרף-פונקציה-וקיצון" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <line x1="50" y1="220" x2="380" y2="220" stroke="#000" stroke-width="1.5"/> <line x1="50" y1="220" x2="50" y2="20" stroke="#000" stroke-width="1.5"/> <path d="M 20 100 C 50 50, 100 20, 150 50 C 200 80, 250 150, 300 200 C 350 220, 380 230" fill="none" stroke="blue" stroke-width="2"/>
-
-        <circle cx="100" cy="20" r="3" fill="black"/>
-        <text x="95" y="15" font-family="sans-serif" font-size="14">A</text>
-        <circle cx="250" cy="150" r="3" fill="black"/>
-        <text x="245" y="165" font-family="sans-serif" font-size="14">B</text>
-
-        <line x1="50" y1="150" x2="350" y2="150" stroke="gray" stroke-dasharray="5,5" stroke-width="1.5"/>
-
-        <path d="M 50 150 L 50 100 C 50 50, 100 20, 150 50 C 200 80, 250 150 L 250 150 Z" fill="url(#diagonal-hatch)" stroke="none"/>
-        <defs>
-          <pattern id="diagonal-hatch" patternUnits="userSpaceOnUse" width="4" height="4">
-            <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#888888" stroke-width="1"/>
-          </pattern>
-        </defs>
-
-        <text x="40" y="30" font-family="sans-serif" font-size="12">y</text>
-        <text x="390" y="210" font-family="sans-serif" font-size="12">x</text>
-      </symbol>
-
-      <symbol id="מלבן-וריבוע" viewBox="0 0 400 250">
-        <rect x="0" y="0" width="400" height="250" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
-        <rect x="100" y="100" width="150" height="100" fill="none" stroke="black" stroke-width="2"/>
-        <text x="105" y="115" font-family="sans-serif" font-size="14">A</text>
-        <text x="105" y="215" font-family="sans-serif" font-size="14">B</text>
-        <text x="255" y="215" font-family="sans-serif" font-size="14">C</text>
-        <text x="255" y="115" font-family="sans-serif" font-size="14">D</text>
-
-        <rect x="250" y="0" width="100" height="100" fill="none" stroke="black" stroke-width="2"/>
-        <text x="255" y="15" font-family="sans-serif" font-size="14">D</text>
-        <text x="345" y="15" font-family="sans-serif" font-size="14">E</text>
-        <text x="345" y="115" font-family="sans-serif" font-size="14">F</text>
-        <text x="255" y="115" font-family="sans-serif" font-size="14">G</text>
-
-        <line x1="250" y1="200" x2="350" y2="0" stroke="gray" stroke-width="1.5"/>
-        <text x="290" y="100" font-family="sans-serif" font-size="12">CE=15</text>
-
-        <line x1="260" y1="150" x2="260" y2="200" stroke="black" stroke-width="1"/>
-        <line x1="255" y1="155" x2="265" y2="155" stroke="black" stroke-width="1"/>
-        <line x1="255" y1="195" x2="265" y2="195" stroke="black" stroke-width="1"/>
-        <text x="270" y="175" font-family="sans-serif" font-size="14">x</text>
-      </symbol>
-
-    </svg>
-
-    <div class="w-full max-w-3xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 rtl-text">
-        <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-6">
-            מורה מתמטיקה AI לבגרות
-        </h1>
-
-        <div class="bg-gray-100 rounded-lg p-5 mb-6 border border-gray-300">
-            <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-3 text-center">
-                הגדרת מפתח API של Gemini
-            </h2>
-            <p class="text-sm text-gray-600 mb-3 text-center">
-                אנא הזן את מפתח ה-API שלך של Gemini. הוא יישמר באחסון המקומי של הדפדפן שלך.
-            </p>
-            <div class="flex flex-col sm:flex-row gap-3">
-                <input type="password" id="apiKeyInput" class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="הזן את מפתח ה-API כאן...">
-                <button id="saveApiKeyButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                    שמור מפתח API
-                </button>
+        <div id="settingsMenu" class="collapsible-menu">
+             <div class="bg-gray-100 rounded-lg p-5 border border-gray-300">
+                <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-3 text-center">הגדרות</h2>
+                <p class="text-sm text-gray-600 mb-1">מפתח API של Gemini:</p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input type="password" id="apiKeyInput" class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="הזן את מפתח ה-API כאן...">
+                    <button id="saveApiKeyButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">שמור מפתח API</button>
+                </div>
+                <p id="apiKeyStatus" class="mt-2 text-sm text-center text-green-700 hidden"></p>
             </div>
-            <p id="apiKeyStatus" class="mt-2 text-sm text-center text-green-700 hidden"></p>
+        </div>
+        <div id="historyMenu" class="collapsible-menu">
+            <div class="bg-teal-50 rounded-lg p-5 border border-teal-200">
+                 <h2 class="text-xl sm:text-2xl font-semibold text-teal-800 mb-3 text-center">היסטוריה ודוחות</h2>
+                 <div id="historyPanelContent" class="bg-white p-3 rounded border border-gray-200 mb-4 text-sm">
+                    אין היסטוריה עדיין.
+                 </div>
+                 <div id="aiRecommendationsContent" class="hidden text-sm"></div>
+                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button id="exportCsvButton" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg">ייצא כ-CSV</button>
+                    <button id="exportJsonButton" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg">ייצא כ-JSON</button>
+                    <button id="getRecommendationsButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">קבל המלצות</button>
+                 </div>
+            </div>
         </div>
 
         <div class="bg-gray-50 rounded-lg p-5 mb-6 border border-gray-200">
-            <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-3 text-center">
-                בחר שאלת בגרות
-            </h2>
+             <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-3 text-center">בחר שאלת בגרות</h2>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                <div>
-                    <label for="moduleSelect" class="block text-sm font-medium text-gray-700 mb-1">
-                        מודול:
-                    </label>
-                    <select id="moduleSelect" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        </select>
-                </div>
-                <div>
-                    <label for="yearSelect" class="block text-sm font-medium text-gray-700 mb-1">
-                        שנה:
-                    </label>
-                    <select id="yearSelect" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        </select>
-                </div>
-                <div>
-                    <label for="questionSelect" class="block text-sm font-medium text-gray-700 mb-1">
-                        שאלה:
-                    </label>
-                    <select id="questionSelect" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        </select>
-                </div>
+                <div> <label for="moduleSelect" class="block text-sm font-medium text-gray-700 mb-1">מודול:</label> <select id="moduleSelect" class="w-full p-2 border border-gray-300 rounded-lg"></select> </div>
+                <div> <label for="yearSelect" class="block text-sm font-medium text-gray-700 mb-1">שנה:</label> <select id="yearSelect" class="w-full p-2 border border-gray-300 rounded-lg"></select> </div>
+                <div> <label for="questionSelect" class="block text-sm font-medium text-gray-700 mb-1">שאלה:</label> <select id="questionSelect" class="w-full p-2 border border-gray-300 rounded-lg"></select> </div>
             </div>
-            <button id="loadProblemButton" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                טען שאלה נבחרת
-            </button>
+            <button id="loadProblemButton" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">טען שאלה</button>
         </div>
 
-        <div id="problemDisplaySection" class="bg-blue-50 rounded-lg p-5 mb-6 border border-blue-200">
-            </div>
+        <div id="problemDisplaySection" class="bg-blue-50 rounded-lg p-5 mb-6 border border-blue-200"></div>
 
-        <div id="initialAnswerSection" class="mb-6">
-            <label for="studentAnswer" class="block text-lg font-medium text-gray-700 mb-2">
-                התשובה שלך (הקלדה חופשית):
-            </label>
-            <textarea id="studentAnswer" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 ease-in-out resize-y min-h-[80px]" rows="4" placeholder="הקלד את תשובתך ואת שלבי הפתרון כאן..."></textarea>
-            <button id="checkAnswerButton" class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                בדוק תשובה
-            </button>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div id="initialAnswerSection">
+                <label for="studentAnswer" class="block text-lg font-medium text-gray-700 mb-2">התשובה שלך:</label>
+                <textarea id="studentAnswer" class="w-full p-3 border border-gray-300 rounded-lg min-h-[160px]" rows="5" placeholder="הקלד את תשובתך ואת שלבי הפתרון כאן..."></textarea>
+                 <button id="openWhiteboardButton" class="mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-3 rounded-lg text-sm inline-flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
+                    פתח לוח מחיק
+                </button>
+            </div>
+            <div id="imageUploadSection">
+                <label for="imageUpload" class="block text-lg font-medium text-gray-700 mb-2">העלה עבודת יד:</label>
+                <input type="file" id="imageUpload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                <div id="pasteZone" class="mt-2">או הדבק צילום מסך כאן (Ctrl+V)</div>
+                <p id="selectedImageName" class="mt-2 text-sm text-gray-600"></p>
+                 <div class="mt-4">
+                    <button id="getHintButton" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition w-full sm:w-auto">
+                        💡 קבל רמז
+                    </button>
+                    <div id="hintDisplay" class="mt-3 p-3 bg-orange-100 text-orange-800 rounded-lg hidden text-center"></div>
+                </div>
+            </div>
         </div>
-
-        <div id="checkAnswerResultDisplay" class="p-4 rounded-lg mb-6 text-center font-semibold text-lg hidden">
-            </div>
+         <button id="checkAnswerButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg mb-6">בדוק תשובה / קבל משוב</button>
+        
+        <div id="checkAnswerResultDisplay" class="p-4 rounded-lg mb-6 text-center font-semibold text-lg hidden"></div>
+        <button id="acknowledgeFeedbackButton" class="hidden mt-2 w-full sm:w-auto mx-auto bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">הבנתי, המשך</button>
 
         <div id="stepByStepSection" class="bg-yellow-50 rounded-lg p-5 mb-6 border border-yellow-200 hidden">
-            <h2 class="text-xl sm:text-2xl font-semibold text-yellow-800 mb-3 text-center">
-                שלב אחר שלב: שלב <span id="currentStepNumber">1</span>
-            </h2>
-            <div id="currentSubProblemQuestion" class="math-problem-display text-xl font-semibold text-center leading-relaxed mb-4">
-                </div>
-            <label for="currentSubProblemAnswer" class="block text-lg font-medium text-gray-700 mb-2">
-                תשובתך לשלב הנוכחי:
-            </label>
-            <textarea id="currentSubProblemAnswer" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 ease-in-out resize-y min-h-[60px]" rows="3" placeholder="הקלד את תשובתך לשלב זה..."></textarea>
-            <button id="checkSubStepButton" class="mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                בדוק שלב
-            </button>
-        </div>
-
-        <div class="mb-6">
-            <label for="imageUpload" class="block text-lg font-medium text-gray-700 mb-2">
-                העלה עבודת יד (אופציונלי לקבלת משוב AI):
-            </label>
-            <input type="file" id="imageUpload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-            <p id="selectedImageName" class="mt-2 text-sm text-gray-600"></p>
+            <h2 class="text-xl sm:text-2xl font-semibold text-yellow-800 mb-3 text-center">שלב <span id="currentStepNumber">1</span></h2>
+            <div id="currentSubProblemQuestion" class="math-problem-display text-xl font-semibold text-center mb-4"></div>
+            <label for="currentSubProblemAnswer" class="block text-lg font-medium text-gray-700 mb-2">תשובתך:</label>
+            <textarea id="currentSubProblemAnswer" class="w-full p-3 border border-gray-300 rounded-lg min-h-[60px]" rows="3"></textarea>
+            <button id="checkSubStepButton" class="mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg">בדוק שלב</button>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <button id="simplifyProblemButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                פשט בעיה
-            </button>
-            <button id="makeHarderProblemButton" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                הפוך בעיה לקשה יותר
-            </button>
-        </div>
-        <button id="getAIFeedbackOnUploadButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 mb-6">
-            קבל משוב AI (על עבודה שהועלתה)
-        </button>
-
-        <div id="loadingIndicator" class="flex items-center justify-center mb-4 text-indigo-600 hidden">
-            <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            מעבד...
-        </div>
-        <div id="errorMessageDisplay" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4 hidden" role="alert">
-            <strong class="font-bold">שגיאה!</strong>
-            <span id="errorMessageText" class="block sm:inline"></span>
+            <button id="simplifyProblemButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg">פשט בעיה</button>
+            <button id="makeHarderProblemButton" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg">הפוך לקשה יותר</button>
         </div>
 
-        <div id="aiFeedbackDisplay" class="bg-purple-50 rounded-lg p-5 border border-purple-200 mt-6 hidden">
-            <h2 class="text-xl sm:text-2xl font-semibold text-purple-800 mb-3 text-center">
-                משוב AI
-            </h2>
-            <div id="aiFeedbackContent" class="text-gray-700 leading-relaxed">
-                </div>
-        </div>
+        <div id="loadingIndicator" class="flex items-center justify-center mb-4 text-indigo-600 hidden"> <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"> <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle> <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path> </svg> מעבד... </div>
+        <div id="errorMessageDisplay" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4 hidden" role="alert"> <strong class="font-bold">שגיאה!</strong> <span id="errorMessageText" class="block sm:inline"></span> </div>
+        <div id="aiFeedbackDisplay" class="bg-purple-50 rounded-lg p-5 border border-purple-200 mt-6 hidden"> <h2 class="text-xl sm:text-2xl font-semibold text-purple-800 mb-3 text-center">משוב AI</h2> <div id="aiFeedbackContent" class="text-gray-700 leading-relaxed"></div> </div>
+    </div>
 
-        <div class="bg-gray-50 rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200 mt-8">
-            <h2 class="text-2xl sm:text-3xl font-bold text-center text-green-700 mb-6">
-                צ'אט מתמטי עם AI
-            </h2>
-            <div id="chatMessagesDisplay" class="flex flex-col h-96 bg-white border border-gray-300 rounded-lg p-4 overflow-y-auto mb-4">
-                </div>
-            <div class="flex">
-                <textarea id="chatInput" class="flex-grow p-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 ease-in-out resize-none" rows="2" placeholder="שאל שאלה מתמטית..."></textarea>
-                <button id="sendChatMessageButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-r-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                    שלח
-                </button>
+    <div id="mathBotToggleContainer">
+        <div id="proactiveTipBubble"></div>
+        <div id="mathBotToggle"> 
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5h0v-1.5m0 0h0m0 0H9.75m10.125 0a9.75 9.75 0 01-9.75 9.75c-4.418 0-8.268-2.903-9.5-7.036m19 0c-.162 2.097-.735 4.034-1.595 5.682A9.723 9.723 0 0112 21.75c-2.602 0-4.967-.992-6.797-2.64S2.25 14.602 2.25 12c0-1.63.396-3.173 1.099-4.518M7.5 10.5h.008v.008H7.5V10.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V15zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125-4.5h.008v.008h-.008V10.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+            </svg> 
+        </div>
+        <p class="text-xs text-gray-500 mt-1 text-center">שאל את הבוט "הסבר..."</p>
+    </div>
+
+    <div id="mathBotContainer">
+        <div id="chatHeader"> <h3>צ'אט מתמטי עם AI</h3> <button id="closeChatButton" aria-label="סגור צ'אט">&times;</button> </div>
+        <div id="chatMessagesDisplay" class="flex flex-col h-full bg-white border-gray-300 p-4 overflow-y-auto"></div>
+        <div id="chatInputContainer" class="flex p-3 bg-gray-100 border-t border-gray-200">
+            <textarea id="chatInput" class="flex-grow p-3 border border-gray-300 rounded-l-lg" rows="2" placeholder="שאל שאלה מתמטית..."></textarea>
+            <button id="sendChatMessageButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-r-lg">שלח</button>
+        </div>
+         <p class="text-xs text-gray-500 p-2 text-center bg-gray-100">השתמש בצ'אט לשאלות כלליות, הסברים ("הסבר...") או עזרה.</p>
+    </div>
+
+    <div id="whiteboardModal">
+        <div id="whiteboardContainer">
+            <canvas id="drawingBoard"></canvas>
+            <div id="whiteboardControls">
+                <button id="saveWhiteboardButton" class="bg-green-500 hover:bg-green-600 text-white">שמור כקובץ והשתמש</button>
+                <button id="clearWhiteboardButton" class="bg-yellow-500 hover:bg-yellow-600 text-white">נקה לוח</button>
+                <button id="closeWhiteboardButton" class="bg-red-500 hover:bg-red-600 text-white">סגור לוח</button>
             </div>
-            <p class="text-sm text-gray-600 mt-2 text-center">
-                השתמש בצ'אט זה כדי לשאול שאלות מתמטיות כלליות או לבקש עזרה צעד אחר צעד בפתרון בעיות.
-            </p>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // Global state variables
+        let geminiApiKey = '';
+        let currentProblem = null;
+        let isInStepByStepMode = false;
+        let currentStepIndex = 0;
+        let stepByStepHistory = []; 
+        let currentSubProblemQuestionText = ''; 
+        let chatMessages = [];
+        let proactiveTipTimeout = null; 
+        let userHistory = []; 
+
+        // DOM Elements - Declared with let, will be assigned in window.onload
+        let settingsButton, historyButton, settingsMenu, historyMenu, historyPanelContent,
+            exportCsvButton, exportJsonButton, getRecommendationsButton, aiRecommendationsContent,
+            getHintButton, hintDisplay, apiKeyInput, saveApiKeyButton, apiKeyStatus,
+            moduleSelect, yearSelect, questionSelect, loadProblemButton, problemDisplaySection,
+            studentAnswerInput, checkAnswerButton, checkAnswerResultDisplay, acknowledgeFeedbackButton,
+            stepByStepSection, currentStepNumberSpan, currentSubProblemQuestionDiv,
+            currentSubProblemAnswerInput, checkSubStepButton, imageUploadInput, pasteZone,
+            selectedImageName, simplifyProblemButton, makeHarderProblemButton, loadingIndicator,
+            errorMessageDisplay, errorMessageText, aiFeedbackDisplay, aiFeedbackContent,
+            mathBotToggleContainer, mathBotToggle, proactiveTipBubble, mathBotContainer,
+            closeChatButton, chatMessagesDisplay, chatInput, sendChatMessageButton,
+            openWhiteboardButton, whiteboardModal, drawingBoard, saveWhiteboardButton,
+            clearWhiteboardButton, closeWhiteboardButton, whiteboardCtx,
+            isDrawingOnWhiteboard = false, lastX, lastY;
+
+
+        const GEMINI_MODEL_NAME = 'gemini-1.5-flash-latest'; 
+        const bagrutQuestionsData = { /* ... Full data from previous version ... */ };
+        function ensureSampleData() { /* ... Full function from previous version... */ }
+        ensureSampleData(); 
+
+        // --- History Management ---
+        function loadUserHistory() { /* ... same as v6 ... */ }
+        function saveUserHistory() { /* ... same as v6 ... */ }
+        function addHistoryEntry(problemId, questionText, isCorrect, usedStepByStep, typedAnswer = "") { /* ... same as v6 ... */ }
+        function displayUserHistory() { /* ... same as v6 ... */ }
+
+        // --- Export Functions ---
+        function downloadData(filename, data, type) { /* ... same as v6 ... */ }
+        function exportAsCsv() { /* ... same as v6 ... */ }
+        function exportAsJson() { /* ... same as v6 ... */ }
+        
+        // --- AI Recommendations ---
+        async function getAIRecommendations() { /* ... same as v6 ... */ }
+
+        // --- Utility Functions (Continued) ---
+        function showLoading(show) { if(loadingIndicator) loadingIndicator.classList.toggle('hidden', !show); }
+        function showErrorMessage(message) { if(errorMessageText && errorMessageDisplay) { errorMessageText.textContent = message; errorMessageDisplay.classList.remove('hidden'); }}
+        function hideErrorMessage() { if(errorMessageDisplay) errorMessageDisplay.classList.add('hidden'); if(errorMessageText) errorMessageText.textContent = ''; }
+        function sanitizeAndFormatLatex(text) { 
+            if (typeof text !== 'string') return '';
+            return text.replace(/\$\$(.*?)\$\$/g, '<span class="latex-formula">$$$1$$</span>')
+                       .replace(/\$(.*?)\$/g, '<span class="latex-formula">$1</span>');
+        }
+        function resetUIState() {
+            hideErrorMessage();
+            if(aiFeedbackDisplay) aiFeedbackDisplay.classList.add('hidden');
+            if(aiFeedbackContent) aiFeedbackContent.innerHTML = '';
+            if(checkAnswerResultDisplay) checkAnswerResultDisplay.classList.add('hidden');
+            if(acknowledgeFeedbackButton) acknowledgeFeedbackButton.classList.add('hidden');
+            if(hintDisplay) hintDisplay.classList.add('hidden'); 
+            if(hintDisplay) hintDisplay.innerHTML = '';
+            if(getHintButton) getHintButton.disabled = false; 
+            if(studentAnswerInput) studentAnswerInput.value = '';
+            if(imageUploadInput) imageUploadInput.value = ''; 
+            if(selectedImageName) selectedImageName.textContent = '';
+            if(pasteZone) pasteZone.textContent = 'או הדבק צילום מסך כאן (Ctrl+V)'; 
+            isInStepByStepMode = false;
+            if(stepByStepSection) stepByStepSection.classList.add('hidden');
+            if(currentSubProblemAnswerInput) currentSubProblemAnswerInput.value = '';
+            
+            const initialAnswerEl = document.getElementById('initialAnswerSection');
+            const imageUploadEl = document.getElementById('imageUploadSection');
+            if(initialAnswerEl) initialAnswerEl.style.display = 'block'; 
+            if(imageUploadEl) imageUploadEl.style.display = 'block';
+
+            if(checkAnswerButton) checkAnswerButton.disabled = false;
+            if(checkSubStepButton) checkSubStepButton.disabled = false;
+            if(currentSubProblemAnswerInput) currentSubProblemAnswerInput.disabled = false;
+            hideProactiveTip(); 
+        }
+
+        // --- API Key & Settings ---
+        function toggleSettingsMenu() { if(settingsMenu) settingsMenu.classList.toggle('expanded'); if(historyMenu && historyMenu.classList.contains('expanded')) historyMenu.classList.remove('expanded'); }
+        function toggleHistoryMenu() { if(historyMenu) historyMenu.classList.toggle('expanded'); if(settingsMenu && settingsMenu.classList.contains('expanded')) settingsMenu.classList.remove('expanded');} 
+        function loadApiKey() { 
+            if (!apiKeyStatus || !apiKeyInput || !settingsMenu) {
+                console.error("API Key UI elements missing in loadApiKey");
+                return;
+            }
+            const storedKey = localStorage.getItem('geminiApiKey');
+            if (storedKey) {
+                geminiApiKey = storedKey;
+                apiKeyInput.value = storedKey;
+                apiKeyStatus.textContent = 'מפתח API נטען בהצלחה!';
+                apiKeyStatus.className = 'mt-2 text-sm text-center text-green-700';
+                settingsMenu.classList.remove('expanded'); 
+            } else {
+                apiKeyStatus.textContent = 'אנא הזן את מפתח ה-API שלך של Gemini.';
+                apiKeyStatus.className = 'mt-2 text-sm text-center text-red-700';
+                settingsMenu.classList.add('expanded'); 
+            }
+            apiKeyStatus.classList.remove('hidden');
+         }
+        function saveApiKey() { /* ... same as v6 ... */ }
+
+        // --- Dropdowns ---
+        function populateDropdowns() { /* ... same as v6 ... */ }
+        function populateYears() { /* ... same as v6 ... */ }
+        function populateQuestions() { /* ... same as v6 ... */ }
+        
+        // --- Problem Loading ---
+        function loadProblemFromSelection() { /* ... same as v6 ... */ }
+        
+        // --- Gemini API Call ---
+        async function callGeminiAPI(promptText, isChatContext = false) { /* ... same as v6 ... */ }
+
+        // --- Hint System ---
+        async function getHint() { /* ... same as v6 ... */ }
+
+        // --- Answer Processing ---
+        async function processStudentInput() { /* ... same as v6, ensure addHistoryEntry is called appropriately ... */ }
+
+        // --- Step-by-Step Guidance ---
+        async function startStepByStepGuidance() { /* ... same as v6 ... */ }
+        function extractContent(text, startMarker, endMarker) { /* ... same as v6 ... */ }
+        async function checkSubStepAnswer() { /* ... same as v6 ... */ }
+        function handleNextAfterSubStepFeedback(aiResponseText, lastUserSubStepAnswer) { /* ... same as v6, including addHistoryEntry on final correct step ... */ }
+        
+        // --- Modify Problem ---
+        async function modifyProblem(modificationType) { /* ... same as v6 ... */ }
+
+        // --- Chatbot & Tips ---
+        function hideProactiveTip() { /* ... same as v6 ... */ }
+        async function triggerProactiveTip() { /* ... same as v6 ... */ }
+        function renderChatMessages() { /* ... same as v6 ... */ }
+        async function sendChatMessage() { /* ... same as v6 ... */ }
+
+        // --- Paste Image ---
+        // Event listener moved to window.onload after pasteZone is defined
+
+        // --- Whiteboard Functionality ---
+        function resizeWhiteboardCanvas() {
+            if (!whiteboardContainer || !whiteboardControls || !drawingBoard) {
+                console.error("Whiteboard elements not ready for resize.");
+                return;
+            }
+            const whiteboardContainerRect = whiteboardContainer.getBoundingClientRect();
+            const controlsHeight = whiteboardControls.offsetHeight;
+            const canvasContainerHeight = whiteboardContainerRect.height - controlsHeight - 32; 
+            const canvasContainerWidth = whiteboardContainerRect.width - 32; 
+
+            drawingBoard.width = canvasContainerWidth > 0 ? canvasContainerWidth : 300; 
+            drawingBoard.height = canvasContainerHeight > 0 ? canvasContainerHeight : 200; 
+            
+            if (whiteboardCtx) { 
+                whiteboardCtx.lineWidth = 3; // Increased line width for better visibility
+                whiteboardCtx.lineCap = 'round';
+                whiteboardCtx.strokeStyle = '#000000';
+                console.log("Whiteboard canvas resized and context styles set.");
+            }
+        }
+
+        function openWhiteboard() {
+            if(whiteboardModal) whiteboardModal.classList.add('visible');
+            if(document.body) document.body.style.overflow = 'hidden'; 
+            resizeWhiteboardCanvas(); 
+            clearWhiteboard(); 
+            console.log("Whiteboard opened.");
+            // Test draw
+            if (whiteboardCtx) {
+                whiteboardCtx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Semi-transparent red
+                whiteboardCtx.fillRect(5, 5, 50, 25);
+                console.log("Test rectangle drawn on whiteboard.");
+            } else {
+                console.error("Whiteboard context not available for test draw.");
+            }
+        }
+
+        function closeWhiteboard() {
+            if(whiteboardModal) whiteboardModal.classList.remove('visible');
+            if(document.body) document.body.style.overflow = ''; 
+            console.log("Whiteboard closed.");
+        }
+
+        function clearWhiteboard() {
+            if(whiteboardCtx && drawingBoard) {
+                whiteboardCtx.clearRect(0, 0, drawingBoard.width, drawingBoard.height);
+                console.log("Whiteboard cleared.");
+            }
+        }
+
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+        
+        function getTouchPos(canvas, touch) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDrawing(e) {
+            if (!whiteboardCtx) { console.error("Cannot start drawing, whiteboard context is missing."); return; }
+            isDrawingOnWhiteboard = true;
+            let pos;
+            if (e.type === 'touchstart') {
+                pos = getTouchPos(drawingBoard, e.touches[0]);
+                 e.preventDefault(); 
+            } else {
+                pos = getMousePos(drawingBoard, e);
+            }
+            [lastX, lastY] = [pos.x, pos.y]; 
+            whiteboardCtx.beginPath(); 
+            whiteboardCtx.moveTo(lastX, lastY); 
+            console.log(`Start drawing at: ${lastX.toFixed(2)}, ${lastY.toFixed(2)}`);
+        }
+
+        function drawOnWhiteboard(e) {
+            if (!isDrawingOnWhiteboard || !whiteboardCtx) return;
+            let pos;
+             if (e.type === 'touchmove') {
+                pos = getTouchPos(drawingBoard, e.touches[0]);
+                e.preventDefault(); 
+            } else {
+                pos = getMousePos(drawingBoard, e);
+            }
+            whiteboardCtx.lineTo(pos.x, pos.y); 
+            whiteboardCtx.stroke(); 
+            console.log(`Drawing to: ${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}`);
+            [lastX, lastY] = [pos.x, pos.y]; 
+        }
+
+        function stopDrawing() {
+            if (isDrawingOnWhiteboard && whiteboardCtx) {
+                // whiteboardCtx.closePath(); // Not strictly necessary for freehand lines
+                isDrawingOnWhiteboard = false;
+                console.log("Stopped drawing.");
+            }
+        }
+
+        async function saveWhiteboardAsImage() { /* ... same as v6 ... */ }
+        
+        // --- Event Listeners ---
+        window.onload = function() {
+            // Initialize DOM elements
+            settingsButton = document.getElementById('settingsButton'); 
+            historyButton = document.getElementById('historyButton'); 
+            settingsMenu = document.getElementById('settingsMenu'); 
+            historyMenu = document.getElementById('historyMenu'); 
+            historyPanelContent = document.getElementById('historyPanelContent'); 
+            exportCsvButton = document.getElementById('exportCsvButton'); 
+            exportJsonButton = document.getElementById('exportJsonButton'); 
+            getRecommendationsButton = document.getElementById('getRecommendationsButton'); 
+            aiRecommendationsContent = document.getElementById('aiRecommendationsContent'); 
+            getHintButton = document.getElementById('getHintButton'); 
+            hintDisplay = document.getElementById('hintDisplay'); 
+            apiKeyInput = document.getElementById('apiKeyInput');
+            saveApiKeyButton = document.getElementById('saveApiKeyButton');
+            apiKeyStatus = document.getElementById('apiKeyStatus');
+            moduleSelect = document.getElementById('moduleSelect');
+            yearSelect = document.getElementById('yearSelect');
+            questionSelect = document.getElementById('questionSelect');
+            loadProblemButton = document.getElementById('loadProblemButton');
+            problemDisplaySection = document.getElementById('problemDisplaySection');
+            studentAnswerInput = document.getElementById('studentAnswer');
+            checkAnswerButton = document.getElementById('checkAnswerButton'); 
+            checkAnswerResultDisplay = document.getElementById('checkAnswerResultDisplay');
+            acknowledgeFeedbackButton = document.getElementById('acknowledgeFeedbackButton');
+            stepByStepSection = document.getElementById('stepByStepSection');
+            currentStepNumberSpan = document.getElementById('currentStepNumber');
+            currentSubProblemQuestionDiv = document.getElementById('currentSubProblemQuestion');
+            currentSubProblemAnswerInput = document.getElementById('currentSubProblemAnswer');
+            checkSubStepButton = document.getElementById('checkSubStepButton');
+            imageUploadInput = document.getElementById('imageUpload');
+            pasteZone = document.getElementById('pasteZone'); 
+            selectedImageName = document.getElementById('selectedImageName');
+            simplifyProblemButton = document.getElementById('simplifyProblemButton');
+            makeHarderProblemButton = document.getElementById('makeHarderProblemButton');
+            loadingIndicator = document.getElementById('loadingIndicator');
+            errorMessageDisplay = document.getElementById('errorMessageDisplay');
+            errorMessageText = document.getElementById('errorMessageText');
+            aiFeedbackDisplay = document.getElementById('aiFeedbackDisplay');
+            aiFeedbackContent = document.getElementById('aiFeedbackContent');
+            mathBotToggleContainer = document.getElementById('mathBotToggleContainer');
+            mathBotToggle = document.getElementById('mathBotToggle');
+            proactiveTipBubble = document.getElementById('proactiveTipBubble');
+            mathBotContainer = document.getElementById('mathBotContainer');
+            closeChatButton = document.getElementById('closeChatButton');
+            chatMessagesDisplay = document.getElementById('chatMessagesDisplay');
+            chatInput = document.getElementById('chatInput');
+            sendChatMessageButton = document.getElementById('sendChatMessageButton');
+            openWhiteboardButton = document.getElementById('openWhiteboardButton');
+            whiteboardModal = document.getElementById('whiteboardModal');
+            drawingBoard = document.getElementById('drawingBoard');
+            saveWhiteboardButton = document.getElementById('saveWhiteboardButton');
+            clearWhiteboardButton = document.getElementById('clearWhiteboardButton');
+            closeWhiteboardButton = document.getElementById('closeWhiteboardButton');
+
+            if (drawingBoard) {
+                whiteboardCtx = drawingBoard.getContext('2d');
+                 if (!whiteboardCtx) {
+                    console.error("Failed to get 2D context for drawing board!");
+                }
+            } else {
+                console.error("Drawing board element not found on load!");
+            }
+
+            loadApiKey(); 
+            loadUserHistory(); 
+            populateDropdowns();
+            loadProblemFromSelection(); 
+
+            if(settingsButton) settingsButton.addEventListener('click', toggleSettingsMenu); 
+            if(historyButton) historyButton.addEventListener('click', toggleHistoryMenu); 
+            if(getHintButton) getHintButton.addEventListener('click', getHint); 
+            if(exportCsvButton) exportCsvButton.addEventListener('click', exportAsCsv); 
+            if(exportJsonButton) exportJsonButton.addEventListener('click', exportAsJson); 
+            if(getRecommendationsButton) getRecommendationsButton.addEventListener('click', getAIRecommendations); 
+            if(openWhiteboardButton) openWhiteboardButton.addEventListener('click', openWhiteboard);
+            if(closeWhiteboardButton) closeWhiteboardButton.addEventListener('click', closeWhiteboard);
+            if(clearWhiteboardButton) clearWhiteboardButton.addEventListener('click', clearWhiteboard);
+            if(saveWhiteboardButton) saveWhiteboardButton.addEventListener('click', saveWhiteboardAsImage);
+
+            if (drawingBoard) {
+                drawingBoard.addEventListener('mousedown', startDrawing);
+                drawingBoard.addEventListener('mousemove', drawOnWhiteboard);
+                drawingBoard.addEventListener('mouseup', stopDrawing);
+                drawingBoard.addEventListener('mouseleave', stopDrawing); 
+                drawingBoard.addEventListener('touchstart', startDrawing, { passive: false });
+                drawingBoard.addEventListener('touchmove', drawOnWhiteboard, { passive: false });
+                drawingBoard.addEventListener('touchend', stopDrawing);
+                drawingBoard.addEventListener('touchcancel', stopDrawing);
+            }
+            
+            window.addEventListener('resize', resizeWhiteboardCanvas); 
+
+            if(moduleSelect) moduleSelect.addEventListener('change', () => { populateYears(); populateQuestions(); loadProblemFromSelection(); });
+            if(yearSelect) yearSelect.addEventListener('change', () => { populateQuestions(); loadProblemFromSelection(); });
+            if(questionSelect) questionSelect.addEventListener('change', loadProblemFromSelection);
+            if(loadProblemButton) loadProblemButton.addEventListener('click', loadProblemFromSelection);
+            if(checkAnswerButton) checkAnswerButton.addEventListener('click', processStudentInput); 
+            if(checkSubStepButton) checkSubStepButton.addEventListener('click', checkSubStepAnswer);
+            if(imageUploadInput) imageUploadInput.addEventListener('change', (e) => { 
+                if (e.target.files && e.target.files[0]) {
+                    if(selectedImageName) selectedImageName.textContent = `קובץ נבחר: ${e.target.files[0].name}`;
+                    if(pasteZone) pasteZone.textContent = 'קובץ נבחר. ניתן להדביק אחר במקומו.';
+                } else {
+                    if(selectedImageName) selectedImageName.textContent = '';
+                }
+            });
+            if(simplifyProblemButton) simplifyProblemButton.addEventListener('click', () => modifyProblem('simplify'));
+            if(makeHarderProblemButton) makeHarderProblemButton.addEventListener('click', () => modifyProblem('makeHarder'));
+            if(saveApiKeyButton) saveApiKeyButton.addEventListener('click', saveApiKey);
+            if(mathBotToggle) mathBotToggle.addEventListener('click', () => {
+                if(mathBotContainer) mathBotContainer.classList.toggle('expanded');
+                if (mathBotContainer && mathBotContainer.classList.contains('expanded')) {
+                    hideProactiveTip(); 
+                    if(chatInput) chatInput.focus();
+                }
+            });
+            if(closeChatButton) closeChatButton.addEventListener('click', () => {
+                if(mathBotContainer) mathBotContainer.classList.remove('expanded');
+            });
+            if(sendChatMessageButton) sendChatMessageButton.addEventListener('click', sendChatMessage);
+            if(chatInput) chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatMessage();
+                }
+            });
+            if(pasteZone) pasteZone.addEventListener('paste', function(event) { 
+                event.preventDefault(); 
+                const items = (event.clipboardData || window.clipboardData).items;
+                let imageFile = null;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        imageFile = items[i].getAsFile();
+                        break;
+                    }
+                }
+                if (imageFile && imageUploadInput && selectedImageName && pasteZone) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(imageFile);
+                    imageUploadInput.files = dataTransfer.files;
+                    selectedImageName.textContent = `קובץ הודבק: ${imageFile.name}`;
+                    pasteZone.textContent = 'תמונה הודבקה בהצלחה!';
+                    setTimeout(() => { 
+                         pasteZone.textContent = 'או הדבק צילום מסך כאן (Ctrl+V)';
+                    }, 3000);
+                } else if (selectedImageName && pasteZone) {
+                    selectedImageName.textContent = 'ההדבקה לא הכילה תמונה חוקית.';
+                     pasteZone.textContent = 'לא זוהתה תמונה בהדבקה.';
+                     setTimeout(() => {
+                         pasteZone.textContent = 'או הדבק צילום מסך כאן (Ctrl+V)';
+                    }, 3000);
+                }
+            });
+        };
+    </script>
 </body>
 </html>
